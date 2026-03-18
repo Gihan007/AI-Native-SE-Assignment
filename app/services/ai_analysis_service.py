@@ -41,6 +41,10 @@ class AIAnalysisService:
         self.model = "openai/gpt-oss-120b"
         self.temperature = 0.2
         self.max_tokens = 1400
+        
+        # Set up prompts directory path
+        service_dir = Path(__file__).parent
+        self.prompts_dir = service_dir.parent / "prompts"
 
     def generate_insights(self, audit: AuditResponse) -> Dict[str, Any]:
         """
@@ -159,28 +163,41 @@ class AIAnalysisService:
             )
 
     def _get_system_prompt(self) -> str:
-        """Get the system prompt for the AI analyst role."""
-        return (
-            "You are a senior website auditor specializing in SEO, UX, accessibility, "
-            "content structure, and conversion optimization.\n\n"
-            "You are given factual metrics extracted from a webpage. "
-            "You must analyze ONLY the provided metrics and content preview.\n\n"
-            "Critical rules:\n"
-            "1. NEVER invent or assume metrics that are not provided.\n"
-            "2. Be cautious when interpreting raw DOM counts.\n"
-            "3. Multiple H1s may sometimes result from duplicated rendering or hidden DOM structure; "
-            "do not overstate the issue without caution.\n"
-            "4. Missing alt text may include decorative images; recommend reviewing informative vs decorative images.\n"
-            "5. CTA counts represent CTA-like elements detected heuristically; do not claim perfect semantic accuracy.\n"
-            "6. Keep recommendations practical, concise, and tied to the provided metrics.\n"
-            "7. Recommendations must be specific and actionable (e.g., 'Add alt text to informational images' "
-            "not 'improve accessibility').\n"
-            "8. Output ONLY valid JSON.\n"
-        )
+        """Load the system prompt from file."""
+        system_prompt_file = self.prompts_dir / "system_prompt.md"
+        
+        if not system_prompt_file.exists():
+            logger.warning("System prompt file not found at %s", system_prompt_file)
+            # Fallback to inline prompt
+            return (
+                "You are a senior website auditor specializing in SEO, UX, accessibility, "
+                "content structure, and conversion optimization.\n\n"
+                "You are given factual metrics extracted from a webpage. "
+                "You must analyze ONLY the provided metrics and content preview.\n\n"
+                "Critical rules:\n"
+                "1. NEVER invent or assume metrics that are not provided.\n"
+                "2. Be cautious when interpreting raw DOM counts.\n"
+                "3. Multiple H1s may sometimes result from duplicated rendering or hidden DOM structure; "
+                "do not overstate the issue without caution.\n"
+                "4. Missing alt text may include decorative images; recommend reviewing informative vs decorative images.\n"
+                "5. CTA counts represent CTA-like elements detected heuristically; do not claim perfect semantic accuracy.\n"
+                "6. Keep recommendations practical, concise, and tied to the provided metrics.\n"
+                "7. Recommendations must be specific and actionable (e.g., 'Add alt text to informational images' "
+                "not 'improve accessibility').\n"
+                "8. Output ONLY valid JSON.\n"
+            )
+        
+        content = system_prompt_file.read_text(encoding="utf-8")
+        # Extract text content, removing markdown headers
+        lines = []
+        for line in content.split("\n"):
+            if not line.startswith("#"):
+                lines.append(line)
+        return "\n".join(lines).strip()
 
     def _build_analysis_prompt(self, metrics: Dict[str, Any], content_preview: str) -> str:
         """
-        Build the analysis prompt with clear scoring rubric and grounded reasoning.
+        Build the analysis prompt by loading template and replacing placeholders.
 
         Args:
             metrics: Structured metrics dictionary.
@@ -189,6 +206,27 @@ class AIAnalysisService:
         Returns:
             Complete prompt for analysis.
         """
+        metrics_json = json.dumps(metrics, indent=2)
+        content_preview_truncated = content_preview[:700]
+        
+        # Load the user prompt template
+        user_prompt_file = self.prompts_dir / "user_prompt.md"
+        
+        if not user_prompt_file.exists():
+            logger.warning("User prompt file not found at %s", user_prompt_file)
+            # Fall back to inline generation
+            return self._build_analysis_prompt_fallback(metrics, content_preview)
+        
+        template = user_prompt_file.read_text(encoding="utf-8")
+        
+        # Replace placeholders
+        prompt = template.replace("{METRICS_JSON}", metrics_json)
+        prompt = prompt.replace("{CONTENT_PREVIEW}", content_preview_truncated)
+        
+        return prompt
+    
+    def _build_analysis_prompt_fallback(self, metrics: Dict[str, Any], content_preview: str) -> str:
+        """Fallback prompt generation if template file is not found."""
         metrics_json = json.dumps(metrics, indent=2)
         content_preview_truncated = content_preview[:700]
 
