@@ -40,7 +40,8 @@ class AIAnalysisService:
         self.client = Groq(api_key=api_key)
         self.model = "openai/gpt-oss-120b"
         self.temperature = 0.2
-        self.max_tokens = 1400
+        # Leave room for full structured JSON output on long pages.
+        self.max_tokens = 2200
         
         # Set up prompts directory path
         service_dir = Path(__file__).parent
@@ -72,24 +73,35 @@ class AIAnalysisService:
         error_details = None
         
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": system_prompt,
-                    },
-                    {
-                        "role": "user",
-                        "content": user_prompt,
-                    },
-                ],
+            raw_response = self._request_completion(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
                 temperature=self.temperature,
-                max_tokens=self.max_tokens,
             )
 
-            raw_response = response.choices[0].message.content or ""
-            analysis = self._parse_response(raw_response)
+            try:
+                analysis = self._parse_response(raw_response)
+            except json.JSONDecodeError as first_parse_error:
+                logger.warning(
+                    "Initial AI response was invalid JSON for %s. Retrying with strict JSON mode.",
+                    audit.url,
+                )
+                strict_user_prompt = (
+                    user_prompt
+                    + "\n\nCRITICAL: Return ONLY valid JSON. Do not include markdown, explanation, "
+                    + "or any text outside the JSON object."
+                )
+                raw_response = self._request_completion(
+                    system_prompt=system_prompt,
+                    user_prompt=strict_user_prompt,
+                    temperature=0.0,
+                    response_format={"type": "json_object"},
+                )
+                try:
+                    analysis = self._parse_response(raw_response)
+                except json.JSONDecodeError:
+                    # Preserve the first parse error details, which are usually the most useful.
+                    raise first_parse_error
 
             # Log successful interaction
             self._log_ai_interaction(
@@ -161,6 +173,36 @@ class AIAnalysisService:
                 details=error_details,
                 summary="An unexpected error occurred during analysis.",
             )
+
+    def _request_completion(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float,
+        response_format: Optional[Dict[str, str]] = None,
+    ) -> str:
+        """Request a completion from Groq and return message content."""
+        request_payload: Dict[str, Any] = {
+            "model": self.model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                },
+                {
+                    "role": "user",
+                    "content": user_prompt,
+                },
+            ],
+            "temperature": temperature,
+            "max_tokens": self.max_tokens,
+        }
+
+        if response_format is not None:
+            request_payload["response_format"] = response_format
+
+        response = self.client.chat.completions.create(**request_payload)
+        return response.choices[0].message.content or ""
 
     def _get_system_prompt(self) -> str:
         """Load the system prompt from file."""
