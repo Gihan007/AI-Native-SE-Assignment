@@ -25,7 +25,7 @@ Local test links:
 - Redeploy when code changes.
 
 3) Railway direct test (public URL)
-Base URL:
+Try this Base URL:
 https://ai-native-se-assignment-production.up.railway.app
 
 Test in browser:
@@ -38,11 +38,31 @@ Invoke-RestMethod -Method Post `
   -ContentType "application/json" `
   -Body '{"url":"https://www.apple.com/mac/"}'
 
-4) Common errors quick fix
+4) Docker setup and test
+- Dockerfile is for Railway style port:
+  container listens on PORT (default 8080)
+- docker-compose is for local:
+  runs app on 8000
+
+Build and run with compose (local 8000):
+- docker compose up --build
+
+Local Docker test links:
+- http://127.0.0.1:8000/health
+- http://127.0.0.1:8000/docs
+
+Build and run direct Docker (different local port 8001):
+- docker build -t ai-native-se .
+- docker run --env-file .env -p 8001:8080 ai-native-se
+
+Direct Docker test links:
+- http://127.0.0.1:8001/health
+- http://127.0.0.1:8001/docs
+
+5) Common errors quick fix
 - Error: Could not import module "main"
   Fix Procfile to use app.main:app
 - Error: 500 on /audit
   Usually missing GROQ_API_KEY in Railway variables
 - App not reachable
   Make sure Railway public domain is generated and service is healthy
-https://ai-native-se-assignment-production.up.railway.app/docshttps://ai-native-se-assignment-production.up.railway.app/docs

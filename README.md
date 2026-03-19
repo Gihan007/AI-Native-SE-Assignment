@@ -168,6 +168,35 @@ response = requests.post(
 print(response.json())
 ```
 
+### 6. Run with Docker (Optional)
+
+Use Docker Compose for local development on port 8000:
+
+```bash
+docker compose up --build
+```
+
+Test locally:
+
+```bash
+curl http://localhost:8000/health
+curl http://localhost:8000/docs
+```
+
+Run direct Docker on a different local port (8001):
+
+```bash
+docker build -t ai-native-se .
+docker run --env-file .env -p 8001:8080 ai-native-se
+```
+
+Test direct Docker run:
+
+```bash
+curl http://localhost:8001/health
+curl http://localhost:8001/docs
+```
+
 ---
 
 ## 🔧 Detailed Setup
@@ -714,6 +743,22 @@ curl -X POST http://localhost:8000/audit \
   -H "Content-Type: application/json" \
   -d '{"url": "https://this-domain-does-not-exist-12345.com"}'
 # Expected: 502 or 504 error
+```
+
+#### Test 9: Docker Smoke Test
+
+```bash
+# Start container with Docker Compose
+docker compose up --build -d
+
+# Check service status
+docker compose ps
+
+# Health endpoint should return healthy
+curl http://localhost:8000/health
+
+# Stop containers
+docker compose down
 ```
 
 ---
