@@ -1,0 +1,48 @@
+Ways to Deployment and Test
+
+1) Local setup (run on your laptop)
+- Open terminal in project folder.
+- Create virtual env:
+  python -m venv venv
+- Activate venv (Windows PowerShell):
+  .\venv\Scripts\Activate.ps1
+- Install packages:
+  pip install -r requirements.txt
+- Create .env file in project root and add:
+  GROQ_API_KEY=your_key_here
+- Run app locally:
+  python -m uvicorn app.main:app --reload --port 8000
+
+Local test links:
+- http://127.0.0.1:8000/health
+- http://127.0.0.1:8000/docs
+
+2) Railway deployment (already deployed)
+- Keep Procfile command as:
+  web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+- In Railway, set variable:
+  GROQ_API_KEY=your_key_here
+- Redeploy when code changes.
+
+3) Railway direct test (public URL)
+Base URL:
+https://ai-native-se-assignment-production.up.railway.app
+
+Test in browser:
+- https://ai-native-se-assignment-production.up.railway.app/health
+- https://ai-native-se-assignment-production.up.railway.app/docs
+
+Test audit API (PowerShell):
+Invoke-RestMethod -Method Post `
+  -Uri "https://ai-native-se-assignment-production.up.railway.app/audit" `
+  -ContentType "application/json" `
+  -Body '{"url":"https://www.apple.com/mac/"}'
+
+4) Common errors quick fix
+- Error: Could not import module "main"
+  Fix Procfile to use app.main:app
+- Error: 500 on /audit
+  Usually missing GROQ_API_KEY in Railway variables
+- App not reachable
+  Make sure Railway public domain is generated and service is healthy
+https://ai-native-se-assignment-production.up.railway.app/docshttps://ai-native-se-assignment-production.up.railway.app/docs
