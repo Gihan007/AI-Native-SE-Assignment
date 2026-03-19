@@ -10,7 +10,7 @@ DEFAULT_USER_AGENT = (
 )
 
 # Logging configuration
-AUDIT_LOG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "logs", "audit_logs.jsonl")
+AUDIT_LOG_FILE = os.path.join(os.getcwd(), "logs", "audit_logs.jsonl")
 
 # CTA keywords for detection (case-insensitive)
 CTA_KEYWORDS = {
